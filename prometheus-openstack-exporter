@@ -22,34 +22,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import argparse
-import yaml
-import json
 import ast
+import json
+import logging.handlers
+import pickle
+import random
+import traceback
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from os import environ as env
 from os import rename, path
-import traceback
-from urllib.parse import urlparse
+from socketserver import ForkingMixIn
 from threading import Thread
-import pickle
-import requests
 from time import sleep, time
-from neutronclient.v2_0 import client as neutron_client
+from urllib.parse import urlparse
+
+import requests
+import swift.common.utils
+import yaml
 # from novaclient.v1_1 import client as nova_client
 # http://docs.openstack.org/developer/python-novaclient/api.html
 from cinderclient.v3 import client as cinder_client
-from novaclient import client as nova_client
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from socketserver import ForkingMixIn
-from prometheus_client import CollectorRegistry, generate_latest, Gauge, CONTENT_TYPE_LATEST
 from netaddr import IPRange
-
-import random
-import swift.common.utils
-
+from neutronclient.v2_0 import client as neutron_client
+from novaclient import client as nova_client
+from prometheus_client import CollectorRegistry, generate_latest, Gauge, CONTENT_TYPE_LATEST
 from swift.common.ring.ring import Ring
-
-import logging
-import logging.handlers
 
 config = None
 log = logging.getLogger('poe-logger')
@@ -127,9 +124,9 @@ def get_clients():
         cinder = cinder_client.Client(session=sess_admin, endpoint_type=interface)
 
     else:
-        raise(ValueError("Invalid OS_IDENTITY_API_VERSION=%s" % ks_version))
+        raise (ValueError("Invalid OS_IDENTITY_API_VERSION=%s" % ks_version))
     log.debug("Client setup done, keystone ver {}".format(ks_version))
-    return (keystone, nova, neutron, cinder)
+    return keystone, nova, neutron, cinder
 
 
 class DataGatherer(Thread):
@@ -156,22 +153,21 @@ class DataGatherer(Thread):
         return info
 
     def _get_neutron_info(self, neutron):
-        info = {}
-        info['floatingips'] = neutron.list_floatingips()['floatingips']
-        info['networks'] = neutron.list_networks()['networks']
-        info['ports'] = neutron.list_ports()['ports']
-        info['routers'] = neutron.list_routers()['routers']
-        info['subnets'] = neutron.list_subnets()['subnets']
+        info = {
+            'floatingips': neutron.list_floatingips()['floatingips'],
+            'networks': neutron.list_networks()['networks'], 'ports': neutron.list_ports()['ports'],
+            'routers': neutron.list_routers()['routers'], 'subnets': neutron.list_subnets()['subnets']
+        }
         return info
 
     def _get_nova_info(self, nova, cinder, prodstack):
-        info = {}
-        info['hypervisors'] = [x._info for x in nova.hypervisors.list()]
-        info['services'] = [x._info for x in nova.services.list()]
-        info['flavors'] = [x._info for x in nova.flavors.list(is_public=None)]
-        info['aggregates'] = [x.to_dict() for x in nova.aggregates.list()]
+        info = {
+            'hypervisors': [x._info for x in nova.hypervisors.list()],
+            'services': [x._info for x in nova.services.list()],
+            'flavors': [x._info for x in nova.flavors.list(is_public=None)],
+            'aggregates': [x.to_dict() for x in nova.aggregates.list()], 'instances': []
+        }
 
-        info['instances'] = []
         # Exclude instances in 'BUILD' state as they cannot be used as markers:
         #   https://github.com/CanonicalLtd/prometheus-openstack-exporter/issues/90
         valid_statuses = ['ACTIVE', 'ERROR', 'SHELVED_OFFLOADED', 'SHUTOFF', 'SUSPENDED', 'VERIFY_RESIZE']
@@ -218,7 +214,7 @@ class DataGatherer(Thread):
                 log.critical("Error getting stats: {}".format(traceback.format_exc()))
             else:
                 with open(self.cache_file + '.new', "wb+") as f:
-                    pickle.dump((prodstack, ), f, pickle.HIGHEST_PROTOCOL)
+                    pickle.dump((prodstack,), f, pickle.HIGHEST_PROTOCOL)
                 rename(self.cache_file + '.new', self.cache_file)
                 log.debug("Done dumping stats to {}".format(self.cache_file))
             self.duration = time() - start_time
@@ -240,7 +236,7 @@ class DataGatherer(Thread):
         return generate_latest(registry)
 
 
-class Neutron():
+class Neutron:
     def __init__(self):
         self.registry = CollectorRegistry()
         self.prodstack = {}
@@ -325,7 +321,7 @@ class Neutron():
         return generate_latest(self.registry)
 
 
-class Cinder():
+class Cinder:
     def __init__(self):
         self.registry = CollectorRegistry()
         self.prodstack = {}
@@ -357,7 +353,7 @@ class Cinder():
         return generate_latest(self.registry)
 
 
-class Nova():
+class Nova:
     def __init__(self):
         self.registry = CollectorRegistry()
         self.prodstack = {}
@@ -382,11 +378,11 @@ class Nova():
         s = config['schedulable_instance_size']
         if s['disk_gbs'] > 0:
             return min(int(free_vcpus / s['vcpu']),
-                    int(free_ram_mbs / s['ram_mbs']),
-                    int(free_disk_gbs / s['disk_gbs']))
+                       int(free_ram_mbs / s['ram_mbs']),
+                       int(free_disk_gbs / s['disk_gbs']))
         else:
             return min(int(free_vcpus / s['vcpu']),
-                    int(free_ram_mbs / s['ram_mbs']))
+                       int(free_ram_mbs / s['ram_mbs']))
 
     def _get_schedulable_instances_capacity(self, host):
         capacity_vcpus = host['vcpus'] * config['openstack_allocation_ratio_vcpu']
@@ -395,11 +391,11 @@ class Nova():
         s = config['schedulable_instance_size']
         if s['disk_gbs'] > 0:
             return min(int(capacity_vcpus / s['vcpu']),
-                    int(capacity_ram_mbs / s['ram_mbs']),
-                    int(capacity_disk_gbs / s['disk_gbs']))
+                       int(capacity_ram_mbs / s['ram_mbs']),
+                       int(capacity_disk_gbs / s['disk_gbs']))
         else:
             return min(int(capacity_vcpus / s['vcpu']),
-                    int(capacity_ram_mbs / s['ram_mbs']))
+                       int(capacity_ram_mbs / s['ram_mbs']))
 
     def gen_hypervisor_stats(self):
         labels = ['cloud', 'hypervisor_hostname', 'aggregate', 'nova_service_status', 'arch']
@@ -544,7 +540,7 @@ class Nova():
         return generate_latest(self.registry)
 
 
-class Swift():
+class Swift:
     def __init__(self):
         self.registry = CollectorRegistry()
         self.baseurl = 'http://{}:6000/recon/{}'
@@ -637,7 +633,7 @@ class Swift():
         return generate_latest(self.registry)
 
 
-class SwiftAccountUsage():
+class SwiftAccountUsage:
     def __init__(self):
         self.registry = CollectorRegistry()
 
@@ -677,7 +673,7 @@ class SwiftAccountUsage():
         return Ring(
             serialized_path=self.ring_path,
             ring_name='account',
-            )
+        )
 
     def _get_account_usage(self, account):
         partition, nodes = self.account_ring.get_nodes(account=account)
@@ -699,7 +695,7 @@ class SwiftAccountUsage():
         swift_account = Gauge(
             'swift_account_bytes_used', 'Swift account usage in bytes', labels, registry=self.registry)
 
-        for tenant_name, tenant_id in self.keystone_tenants_map.iteritems():
+        for tenant_name, tenant_id in self.keystone_tenants_map.items():
             account = self.reseller_prefix + tenant_id
             bytes_used = self._get_account_usage(account)
 
@@ -721,13 +717,13 @@ COLLECTORS = {
     'nova': Nova,
     'swift': Swift,
     'swift-account-usage': SwiftAccountUsage,
-    }
+}
 
 DATA_GATHERER_USERS = [
     'cinder',
     'neutron',
     'nova',
-    ]
+]
 
 
 def get_collectors(collectors):
@@ -745,7 +741,7 @@ def data_gatherer_needed(config):
 
 class OpenstackExporterHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def do_GET(self):
         url = urlparse(self.path)
@@ -762,11 +758,11 @@ class OpenstackExporterHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header('Content-Type', CONTENT_TYPE_LATEST)
                 self.end_headers()
-                self.wfile.write(output)
+                self.wfile.write(output.encode())
             except Exception:
                 self.send_response(500)
                 self.end_headers()
-                self.wfile.write(traceback.format_exc())
+                self.wfile.write(traceback.format_exc().encode())
         elif url.path == '/':
             self.send_response(200)
             self.end_headers()
@@ -776,14 +772,14 @@ class OpenstackExporterHandler(BaseHTTPRequestHandler):
             <h1>OpenStack Exporter</h1>
             <p>Visit <code>/metrics</code> to use.</p>
             </body>
-            </html>""")
+            </html>""".encode())
         else:
             self.send_response(404)
             self.end_headers()
 
 
 def handler(*args, **kwargs):
-    OpenstackExporterHandler(*args, **kwargs)
+    return OpenstackExporterHandler(*args, **kwargs)
 
 
 if __name__ == '__main__':
