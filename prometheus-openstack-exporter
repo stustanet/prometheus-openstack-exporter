@@ -28,7 +28,7 @@ import ast
 from os import environ as env
 from os import rename, path
 import traceback
-import urlparse
+from urllib.parse import urlparse
 from threading import Thread
 import pickle
 import requests
@@ -749,7 +749,7 @@ class OpenstackExporterHandler(BaseHTTPRequestHandler):
         BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def do_GET(self):
-        url = urlparse.urlparse(self.path)
+        url = urlparse(self.path)
         if url.path == '/metrics':
             try:
                 collectors = [COLLECTORS[collector]() for collector in get_collectors(config.get('enabled_collectors'))]
