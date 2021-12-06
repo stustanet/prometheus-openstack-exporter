@@ -25,6 +25,7 @@ import argparse
 import ast
 import json
 import logging.handlers
+import os
 import pickle
 import random
 import traceback
@@ -198,6 +199,15 @@ class DataGatherer(Thread):
     def run(self):
         log.debug("Starting data gather thread")
         prodstack = {}
+
+        # check if the path and the cache file actually exist, if not create them
+        if not os.path.exists(os.path.dirname(self.cache_file)):
+            os.mkdir(os.path.dirname(self.cache_file))
+
+        if not os.path.exists(self.cache_file) or not os.path.isfile(self.cache_file):
+            with open(self.cache_file, 'wb+') as f:
+                pickle.dump((prodstack,), f, pickle.HIGHEST_PROTOCOL)
+
         while True:
             start_time = time()
             try:
