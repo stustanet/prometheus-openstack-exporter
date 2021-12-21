@@ -4,7 +4,6 @@
 
 listen_port: 9183
 cache_refresh_interval: 300  # In seconds
-cache_file: .cache/stusta
 cloud: StuSta
 openstack_allocation_ratio_vcpu: 8.0
 openstack_allocation_ratio_ram: 1.1
