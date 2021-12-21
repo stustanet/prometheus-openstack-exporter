@@ -14,3 +14,5 @@ prometheus-openstack-exporter.yaml
 admin.novarc
 
 /.idea
+*.egg-info
+/dist
