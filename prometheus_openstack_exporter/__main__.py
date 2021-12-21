@@ -7,7 +7,8 @@ import yaml
 
 from .exporter import DataGatherer, log
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(
         usage=__doc__,
         description="Prometheus OpenStack exporter",
@@ -39,3 +40,7 @@ if __name__ == "__main__":
     prometheus_client.start_http_server(config.get("listen_port", 9183))
     data_gatherer = DataGatherer(config=config)
     data_gatherer.run()
+
+
+if __name__ == "__main__":
+    main()
