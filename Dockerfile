@@ -11,7 +11,7 @@ RUN \
     pip install python-neutronclient python-novaclient python-keystoneclient python-cinderclient \
     prometheus-client requests pyyaml netaddr swift flake8
 
-COPY prometheus-openstack-exporter /
+COPY prometheus_openstack_exporter/prometheus-openstack-exporter /
 COPY prometheus-openstack-exporter.sample.yaml /
 COPY wrapper.sh /
 

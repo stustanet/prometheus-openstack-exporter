@@ -1,1 +1,0 @@
-prometheus-openstack-exporter

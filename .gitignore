@@ -10,3 +10,7 @@ debian/files
 parts
 prime
 stage
+prometheus-openstack-exporter.yaml
+admin.novarc
+
+/.idea

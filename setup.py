@@ -17,18 +17,18 @@ setup(
     scripts=["prometheus-openstack-exporter"],
     install_requires=[
         "prometheus_client",
-        "python-keystoneclient<=3.10.0",
-        "python-novaclient==6.0.0",
-        "python-neutronclient<=6.1.0",
+        "python-keystoneclient>=4.2.0",
+        "python-novaclient>=17.4.0",
+        "python-neutronclient>=7.3.0",
         "python-cinderclient",
         "netaddr",
-        "swift",
+        "requests",
+        "PyYAML",
     ],
-    long_description=read('README.md'),
+    long_description=read("README.md"),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: System :: Networking :: Monitoring",
-        "License :: OSI Approved :: "
-        "GNU General Public License v3 or later (GPLv3+)",
+        "License :: OSI Approved :: " "GNU General Public License v3 or later (GPLv3+)",
     ],
 )
